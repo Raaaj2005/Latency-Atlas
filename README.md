@@ -2,7 +2,7 @@
 
 # 📡 Latency Atlas
 
-**A live, crowdsourced network-latency radar — built entirely on WebSockets.**
+**A live, crowdsourced network-latency radar, built entirely on WebSockets.**
 
 Every browser tab that opens this page becomes a probe. The server pings it continuously,
 geolocates it, and broadcasts the whole swarm's position and latency to everyone else
@@ -32,11 +32,11 @@ part -- an empty radar with one dot is a much weaker first impression.
 
 ## Why this is different
 
-Most WebSocket demo projects are chat apps. This one isn't — the socket is doing
+Most WebSocket demo projects are chat apps. This one isn't, the socket is doing
 something a REST endpoint genuinely can't: it's the timing mechanism itself. The
 server measures your real round-trip latency over the same connection it uses to
 push you everyone else's, and every client renders that shared state onto a radar
-using a real **azimuthal-equidistant projection** — distance from center is actual
+using a real **azimuthal-equidistant projection**, distance from center is actual
 great-circle distance (haversine), and angle is actual compass bearing from the
 server's own geolocated position. It's not a stylized map. The geometry is real.
 
@@ -55,7 +55,7 @@ Browser tab  --opens WS-->  FastAPI hub  --IP lookup-->  Geolocates the probe
 1. A browser tab opens a persistent WebSocket connection to the server.
 2. The server resolves that client's approximate location from its IP.
 3. The server pings the client every 1.5 seconds over the open socket and times
-   the reply — that round trip *is* the latency measurement, not a simulated one.
+   the reply, that round trip *is* the latency measurement, not a simulated one.
 4. Every latency update triggers a broadcast of the full swarm's state (city,
    coordinates, current latency for every connected client) to **all** clients.
 5. Each client projects that shared state onto a rotating radar scope centered on
@@ -64,12 +64,12 @@ Browser tab  --opens WS-->  FastAPI hub  --IP lookup-->  Geolocates the probe
 
 ## Features
 
-- 🌍 **Real geolocation** — IP-based lookup on connect, not mock coordinates
-- 📶 **Live RTT measurement** — genuine ping/pong timing over the open socket, not a fake number
-- 📡 **Real radar geometry** — haversine distance + compass bearing, not a decorative map
-- 🔄 **Instant broadcast** — every client sees every other client update in real time, no polling
-- 📱 **Works cross-device** — open it on your phone and laptop side by side and watch both probes appear
-- 🪶 **Zero frontend dependencies** — vanilla JS and `<canvas>`, no framework, no build step
+- 🌍 **Real geolocation**: IP-based lookup on connect, not mock coordinates
+- 📶 **Live RTT measurement**: genuine ping/pong timing over the open socket, not a fake number
+- 📡 **Real radar geometry**: haversine distance + compass bearing, not a decorative map
+- 🔄 **Instant broadcast**: every client sees every other client update in real time, no polling
+- 📱 **Works cross-device**: open it on your phone and laptop side by side and watch both probes appear
+- 🪶 **Zero frontend dependencies**: vanilla JS and `<canvas>`, no framework, no build step
 
 ## Tech stack
 
@@ -84,7 +84,7 @@ Browser tab  --opens WS-->  FastAPI hub  --IP lookup-->  Geolocates the probe
 
 ## Try it yourself
 
-**Live:** **[https://latency-atlas-12dk.onrender.com](https://latency-atlas-12dk.onrender.com)** — open it on two devices at once (say, your laptop and phone off Wi-Fi) to watch two real, independently-geolocated probes appear on the radar together.
+**Live:** **[https://latency-atlas-12dk.onrender.com](https://latency-atlas-12dk.onrender.com)** - open it on two devices at once (say, your laptop and phone off Wi-Fi) to watch two real, independently-geolocated probes appear on the radar together.
 
 **Locally:**
 
@@ -97,7 +97,7 @@ uvicorn main:app --reload
 ```
 
 Then open `http://127.0.0.1:8000` in a few tabs. On localhost, private IPs can't
-be geolocated, so probes get randomized demo cities — the latency numbers stay real,
+be geolocated, so probes get randomized demo cities, the latency numbers stay real,
 only the position is simulated.
 
 ## Project structure
@@ -114,12 +114,11 @@ latency-atlas/
 
 ## Known limitations
 
-- IP geolocation is city-level and rate-limited on the free `ipapi.co` tier —
-  fine for a demo, not for production scale.
+- IP geolocation is city-level and rate-limited on the free `ipapi.co` tier, fine for a demo, not for production scale.
 - State broadcasts on every latency update rather than on a fixed tick, which
   is simple but gets chattier as more clients connect. A batched, fixed-interval
   broadcast loop would scale further.
-- No persistence by design — the swarm is "who's here right now," and resets
+- No persistence by design, the swarm is "who's here right now," and resets
   on server restart.
 
 ## Author Details
