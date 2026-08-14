@@ -1,76 +1,136 @@
-# Latency Atlas
+<div align="center">
 
-A live, crowdsourced network-latency radar. Every browser tab that opens a
-WebSocket connection becomes a "probe" — the server pings it continuously,
-geolocates it by IP, and broadcasts the full swarm's position and latency to
-every other connected client in real time. The result is a shared, rotating
-radar scope that fills up with whoever is currently looking at the page.
+# 📡 Latency Atlas
 
-WebSockets aren't a feature bolted onto this project — they're the whole
-mechanism. There is no polling, no REST endpoint for state, no page refresh.
-A client's only channel to the server is a persistent WebSocket carrying a
-continuous ping/pong stream in one direction and broadcast state updates in
-the other.
+**A live, crowdsourced network-latency radar — built entirely on WebSockets.**
+
+Every browser tab that opens this page becomes a probe. The server pings it continuously,
+geolocates it, and broadcasts the whole swarm's position and latency to everyone else
+watching — in real time, with no polling and no page refresh.
+
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![WebSockets](https://img.shields.io/badge/WebSockets-live-FFB000?style=flat-square)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![Deployed on Render](https://img.shields.io/badge/Deployed%20on-Render-46E3B7?style=flat-square&logo=render&logoColor=white)](https://render.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+
+**[🔴 Live demo →](https://latency-atlas-12dk.onrender.com)**
+
+</div>
+
+---
+
+<!--
+SCREENSHOT: open your live Render URL with 2-3 tabs/devices connected so the
+radar has real probes on it, take a screenshot, save it as docs/screenshot.png
+in the repo, and this will render automatically. Don't skip the multi-tab
+part -- an empty radar with one dot is a much weaker first impression.
+-->
+<p align="center">
+  <img src="docs/screenshot.png" alt="Latency Atlas radar view showing several connected probes with live latency readings" width="850">
+</p>
+
+## Why this is different
+
+Most WebSocket demo projects are chat apps. This one isn't — the socket is doing
+something a REST endpoint genuinely can't: it's the timing mechanism itself. The
+server measures your real round-trip latency over the same connection it uses to
+push you everyone else's, and every client renders that shared state onto a radar
+using a real **azimuthal-equidistant projection** — distance from center is actual
+great-circle distance (haversine), and angle is actual compass bearing from the
+server's own geolocated position. It's not a stylized map. The geometry is real.
 
 ## How it works
 
-1. A browser tab opens a WebSocket connection to the FastAPI server.
-2. The server resolves the client's approximate location from its IP
-   (falling back to a randomized demo city for localhost/private IPs, so it
-   still looks good when you test with a few tabs on one machine).
-3. The server pings that client every 1.5s over the open socket; the client
-   replies immediately with a pong, and the server times the round trip.
-4. On every latency update, the server broadcasts the full swarm state
-   (every connected client's city, coordinates, and current latency) to
-   **all** connected clients.
-5. Each client projects that shared state onto a radar view using a real
-   [azimuthal-equidistant projection](https://en.wikipedia.org/wiki/Azimuthal_equidistant_projection)
-   centered on the server's own location — so distance from center is real
-   great-circle distance (haversine), and angle from center is real compass
-   bearing. It's not a stylized map; the geometry is genuine.
+```
+Browser tab  --opens WS-->  FastAPI hub  --IP lookup-->  Geolocates the probe
+                                  |
+                          ping every 1.5s, times the pong
+                                  |
+                     broadcasts full swarm state to every client
+                                  |
+                     each client projects it onto a live radar
+```
 
-## Stack
+1. A browser tab opens a persistent WebSocket connection to the server.
+2. The server resolves that client's approximate location from its IP.
+3. The server pings the client every 1.5 seconds over the open socket and times
+   the reply — that round trip *is* the latency measurement, not a simulated one.
+4. Every latency update triggers a broadcast of the full swarm's state (city,
+   coordinates, current latency for every connected client) to **all** clients.
+5. Each client projects that shared state onto a rotating radar scope centered on
+   the server's own location, with a sweep line, range rings labeled in real
+   kilometers, and a live sidebar ranked by latency.
 
-- **Backend:** FastAPI + native WebSockets (`fastapi.WebSocket`), `httpx` for
-  async IP geolocation lookups (via [ipapi.co](https://ipapi.co))
-- **Frontend:** vanilla JS + `<canvas>`, no framework, no build step — one
-  HTML file
-- **Deploy target:** Render (see `render.yaml`)
+## Features
 
-## Running locally
+- 🌍 **Real geolocation** — IP-based lookup on connect, not mock coordinates
+- 📶 **Live RTT measurement** — genuine ping/pong timing over the open socket, not a fake number
+- 📡 **Real radar geometry** — haversine distance + compass bearing, not a decorative map
+- 🔄 **Instant broadcast** — every client sees every other client update in real time, no polling
+- 📱 **Works cross-device** — open it on your phone and laptop side by side and watch both probes appear
+- 🪶 **Zero frontend dependencies** — vanilla JS and `<canvas>`, no framework, no build step
+
+## Tech stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Backend | FastAPI + native `WebSocket` | first-class async WebSocket support, no extra layer needed |
+| Latency | Server-driven ping/pong loop | measures real RTT rather than trusting client-reported numbers |
+| Geolocation | `httpx` + [ipapi.co](https://ipapi.co) | async, non-blocking IP lookups on connect |
+| Frontend | Vanilla JS + Canvas 2D | keeps the radar rendering fast and dependency-free |
+| Projection | Haversine distance + bearing (hand-implemented) | genuine geographic math, not a canned mapping library |
+| Deploy | Render (`render.yaml` included) | one-click deploy straight from this repo |
+
+## Try it yourself
+
+**Live:** **[https://latency-atlas-12dk.onrender.com](https://latency-atlas-12dk.onrender.com)** — open it on two devices at once (say, your laptop and phone off Wi-Fi) to watch two real, independently-geolocated probes appear on the radar together.
+
+**Locally:**
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # .venv\Scripts\activate on Windows
+git clone https://github.com/Raaaj2005/latency-atlas.git
+cd latency-atlas
+python -m venv .venv && source .venv/bin/activate   # .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` in a few different tabs (or on your phone over
-the same Wi-Fi) and watch the radar populate. On localhost, probes get
-randomized demo coordinates since private IPs can't be geolocated — the
-latency numbers are still real, only the position is simulated.
+Then open `http://127.0.0.1:8000` in a few tabs. On localhost, private IPs can't
+be geolocated, so probes get randomized demo cities — the latency numbers stay real,
+only the position is simulated.
 
-## Deploying
+## Project structure
 
-The included `render.yaml` deploys this as-is on [Render](https://render.com)'s
-free tier — connect the repo and it builds automatically. Any host that
-supports long-lived WebSocket connections and ASGI apps (Fly.io, Railway,
-a plain VM behind nginx) works the same way; just point it at
-`uvicorn main:app --host 0.0.0.0 --port $PORT`.
+```
+latency-atlas/
+├── main.py              FastAPI app: WebSocket hub, ping loop, geolocation, broadcast
+├── static/
+│   └── index.html        Radar UI: canvas rendering, projection math, WS client
+├── requirements.txt
+├── render.yaml           One-click Render deploy config
+└── README.md
+```
 
-## Known limitations / next steps
+## Known limitations
 
-- IP geolocation is approximate (city-level) and the free `ipapi.co` tier is
-  rate-limited — fine for a demo, not for production scale.
-- Broadcasts fire on every latency update rather than on a fixed tick, which
-  is simple but chattier than necessary at high client counts. A batched
-  broadcast loop (e.g. one tick per second regardless of client count) would
-  scale further.
-- No persistence — the swarm state lives entirely in memory and resets on
-  restart, which is intentional for a "who's here right now" visualization
-  but worth knowing.
+- IP geolocation is city-level and rate-limited on the free `ipapi.co` tier —
+  fine for a demo, not for production scale.
+- State broadcasts on every latency update rather than on a fixed tick, which
+  is simple but gets chattier as more clients connect. A batched, fixed-interval
+  broadcast loop would scale further.
+- No persistence by design — the swarm is "who's here right now," and resets
+  on server restart.
 
-## License
+## Author Details
 
-MIT
+**Name:** Raj Fatehveer Singh Brar<br>
+**Roll No.:** 102317090<br>
+**Email ID:** rbrar_be23@thapar.edu<br>
+**University:** Thapar Institute of Engineering and Technology
+
+---
+
+<div align="center">
+<sub>Built by <a href="https://github.com/Raaaj2005">Raaaj2005</a></sub>
+</div>
