@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Latency Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0e13;
+    --panel: #10161d;
+    --panel-border: #1d2731;
+    --grid: rgba(79, 214, 232, 0.14);
+    --grid-strong: rgba(79, 214, 232, 0.28);
+    --amber: #ffb000;
+    --amber-dim: rgba(255, 176, 0, 0.35);
+    --cyan: #4fd6e8;
+    --coral: #ff5d4d;
+    --text: #d6e4ea;
+    --text-dim: #6c7f8c;
+    --text-faint: #3d4a53;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--panel-border);
+    background: linear-gradient(180deg, #0d1218 0%, #0a0e13 100%);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 9px;
+    height: 9px;
+    background: var(--amber);
+    border-radius: 50%;
+    box-shadow: 0 0 8px 1px var(--amber-dim);
+    animation: pulse-dot 2.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    margin: 0;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .stat-strip {
+    display: flex;
+    gap: 22px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 74px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--cyan);
+  }
+
+  .stat-value.warn { color: var(--amber); }
+  .stat-value.bad { color: var(--coral); }
+
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  .radar-wrap {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+  }
+
+  #radar {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .status-chip {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: rgba(16, 22, 29, 0.85);
+    border: 1px solid var(--panel-border);
+    padding: 6px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+  }
+
+  .status-chip.connected .dot { background: var(--cyan); }
+  .status-chip .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--coral);
+    margin-right: 6px;
+  }
+
+  aside {
+    width: 280px;
+    border-left: 1px solid var(--panel-border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  aside h2 {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  #probe-list {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .probe-row {
+    display: flex;
+    align-items: center;
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(29, 39, 49, 0.6);
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .probe-row.self {
+    background: rgba(255, 176, 0, 0.06);
+  }
+
+  .probe-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .probe-loc {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+
+  .probe-loc .country {
+    color: var(--text-dim);
+    font-size: 10px;
+    display: block;
+  }
+
+  .probe-ms {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .probe-tag {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+
+  .empty-state {
+    padding: 20px 16px;
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 720px) {
+    aside { display: none; }
+    .stat-strip { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <h1 class="mono">Latency Atlas</h1>
+      </div>
+      <div class="subtitle">Live network radar &mdash; every open tab is a probe</div>
+    </div>
+    <div class="stat-strip mono">
+      <div class="stat">
+        <span class="stat-label">Probes</span>
+        <span class="stat-value" id="stat-probes">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">You</span>
+        <span class="stat-value" id="stat-self">&mdash;</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Avg</span>
+        <span class="stat-value" id="stat-avg">&mdash;</span>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="radar-wrap">
+      <canvas id="radar"></canvas>
+      <div class="status-chip mono" id="status-chip"><span class="dot"></span><span id="status-text">connecting</span></div>
+    </div>
+    <aside>
+      <h2>Connected probes</h2>
+      <div id="probe-list">
+        <div class="empty-state">Waiting for the swarm to connect&hellip;</div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('radar');
+  const ctx = canvas.getContext('2d');
+  const statusChip = document.getElementById('status-chip');
+  const statusText = document.getElementById('status-text');
+  const statProbes = document.getElementById('stat-probes');
+  const statSelf = document.getElementById('stat-self');
+  const statAvg = document.getElementById('stat-avg');
+  const probeListEl = document.getElementById('probe-list');
+
+  const MAX_RANGE_KM = 20015; // roughly antipodal distance on Earth
+  const SWEEP_DEGREES_PER_SEC = 45;
+  const FLASH_DURATION_MS = 900;
+
+  let hub = { city: 'Origin', country: '', lat: 0, lon: 0 };
+  let clientList = [];
+  let selfId = null;
+  let sweepAngle = 0;
+  let lastFrameTime = performance.now();
+  let flashes = []; // {angle, startTime}
+  let seenAngles = new Map(); // client id -> last bearing, to detect sweep pass
+
+  function toRad(deg) { return (deg * Math.PI) / 180; }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(Math.min(1, a)));
+  }
+
+  function bearingDeg(lat1, lon1, lat2, lon2) {
+    const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+    const x =
+      Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  }
+
+  function latencyColor(ms) {
+    if (ms <= 0) return '#3d4a53';
+    if (ms < 80) return '#4fd6e8';
+    if (ms < 220) return '#ffb000';
+    return '#ff5d4d';
+  }
+
+  function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function drawRadar(now) {
+    const dt = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+    sweepAngle = (sweepAngle + SWEEP_DEGREES_PER_SEC * dt) % 360;
+
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxRadius = Math.min(w, h) * 0.44;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // range rings
+    const ringSteps = [0.25, 0.5, 0.75, 1.0];
+    ctx.strokeStyle = 'rgba(79, 214, 232, 0.14)';
+    ctx.lineWidth = 1;
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillStyle = 'rgba(108, 127, 140, 0.9)';
+    ringSteps.forEach((frac) => {
+      const r = maxRadius * frac;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      const km = Math.round(MAX_RANGE_KM * frac);
+      ctx.fillText(km.toLocaleString() + ' km', cx + 4, cy - r + 12);
+    });
+
+    // crosshair
+    ctx.strokeStyle = 'rgba(79, 214, 232, 0.10)';
+    ctx.beginPath();
+    ctx.moveTo(cx - maxRadius, cy);
+    ctx.lineTo(cx + maxRadius, cy);
+    ctx.moveTo(cx, cy - maxRadius);
+    ctx.lineTo(cx, cy + maxRadius);
+    ctx.stroke();
+
+    // rotating sweep (wedge fade)
+    const sweepRad = toRad(sweepAngle - 90);
+    const grad = ctx.createConicGradient
+      ? null
+      : null;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(sweepRad);
+    const wedge = ctx.createLinearGradient(0, 0, maxRadius, 0);
+    wedge.addColorStop(0, 'rgba(255, 176, 0, 0.28)');
+    wedge.addColorStop(1, 'rgba(255, 176, 0, 0)');
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, maxRadius, -0.26, 0.26);
+    ctx.closePath();
+    ctx.fillStyle = wedge;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 176, 0, 0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(maxRadius, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    // hub marker
+    ctx.strokeStyle = '#ffb000';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(cx - 5, cy - 5, 10, 10);
+    ctx.fillStyle = 'rgba(108, 127, 140, 0.9)';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillText((hub.city || 'ORIGIN').toUpperCase(), cx + 10, cy - 8);
+
+    // clients
+    clientList.forEach((c) => {
+      const dist = haversineKm(hub.lat, hub.lon, c.lat, c.lon);
+      const bearing = bearingDeg(hub.lat, hub.lon, c.lat, c.lon);
+      const r = Math.min(maxRadius, (dist / MAX_RANGE_KM) * maxRadius);
+      const angleRad = toRad(bearing - 90);
+      const x = cx + r * Math.cos(angleRad);
+      const y = cy + r * Math.sin(angleRad);
+
+      // detect sweep passing this probe -> trigger flash
+      const prevAngle = seenAngles.get(c.id);
+      if (prevAngle !== undefined) {
+        const crossed =
+          (prevAngle < bearing && sweepAngle >= prevAngle && sweepAngle <= bearing) ||
+          (Math.abs(((sweepAngle - bearing + 540) % 360) - 180) < SWEEP_DEGREES_PER_SEC * dt + 1);
+      }
+      seenAngles.set(c.id, bearing);
+
+      const isSelf = c.id === selfId;
+      const color = latencyColor(c.latency_ms);
+      const radius = isSelf ? 6 : 4;
+
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (isSelf) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        const pulse = 3 + Math.sin(now / 250) * 2;
+        ctx.beginPath();
+        ctx.arc(x, y, radius + 5 + pulse, 0, Math.PI * 2);
+        ctx.globalAlpha = 0.5;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    });
+
+    // active flashes (currently unused trigger path kept simple/stable, reserved for future refinement)
+    flashes = flashes.filter((f) => now - f.startTime < FLASH_DURATION_MS);
+
+    requestAnimationFrame(drawRadar);
+  }
+
+  function updateStatsAndList() {
+    statProbes.textContent = clientList.length;
+
+    const self = clientList.find((c) => c.id === selfId);
+    if (self) {
+      statSelf.textContent = Math.round(self.latency_ms) + 'ms';
+      statSelf.className = 'stat-value mono ' + (self.latency_ms > 220 ? 'bad' : self.latency_ms > 80 ? 'warn' : '');
+    } else {
+      statSelf.textContent = '\u2014';
+    }
+
+    if (clientList.length) {
+      const avg = clientList.reduce((sum, c) => sum + c.latency_ms, 0) / clientList.length;
+      statAvg.textContent = Math.round(avg) + 'ms';
+    } else {
+      statAvg.textContent = '\u2014';
+    }
+
+    if (!clientList.length) {
+      probeListEl.innerHTML = '<div class="empty-state">Waiting for the swarm to connect&hellip;</div>';
+      return;
+    }
+
+    const sorted = [...clientList].sort((a, b) => a.latency_ms - b.latency_ms);
+    probeListEl.innerHTML = sorted
+      .map((c) => {
+        const isSelf = c.id === selfId;
+        const color = latencyColor(c.latency_ms);
+        return (
+          '<div class="probe-row' + (isSelf ? ' self' : '') + '">' +
+          '<span class="probe-dot" style="background:' + color + '"></span>' +
+          '<span class="probe-loc">' + escapeHtml(c.city) +
+          (isSelf ? '<span class="probe-tag">YOU</span>' : '') +
+          '<span class="country">' + escapeHtml(c.country) + '</span></span>' +
+          '<span class="probe-ms mono">' + Math.round(c.latency_ms) + 'ms</span>' +
+          '</div>'
+        );
+      })
+      .join('');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(proto + '://' + location.host + '/ws');
+
+    ws.onopen = () => {
+      statusChip.classList.add('connected');
+      statusText.textContent = 'connected';
+    };
+
+    ws.onclose = () => {
+      statusChip.classList.remove('connected');
+      statusText.textContent = 'reconnecting\u2026';
+      setTimeout(connect, 1500);
+    };
+
+    ws.onerror = () => ws.close();
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'welcome') {
+        selfId = msg.id;
+        if (msg.hub) hub = msg.hub;
+      } else if (msg.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong', ts: msg.ts }));
+      } else if (msg.type === 'state') {
+        if (msg.hub) hub = msg.hub;
+        clientList = msg.clients || [];
+        updateStatsAndList();
+      }
+    };
+  }
+
+  resizeCanvas();
+  requestAnimationFrame(drawRadar);
+  connect();
+})();
+</script>
+</body>
+</html>
